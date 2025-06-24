@@ -8,7 +8,7 @@ Telegram report bot are a tool designed to automate the process of reporting acc
    <p>The program is easy to use, you only need the username of Telegram account channel group.</p>
    <p>All accounts created via bulk are automatically included in the program.</p>
    <p>This program contains a lot of accounts created using automated software, the software is a bulk accounts application.</p> 
------
+----
 
 ## 🟢 GET THE TOOL
 <p align="center"> 
