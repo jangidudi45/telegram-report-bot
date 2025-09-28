@@ -35,7 +35,7 @@ async def show_random_emojis(message):
     emoji_message = await message.reply_text(' '.join(random.choices(emojis, k=1)))
     return emoji_message
 
-owner_id = 7836790905
+owner_id = 7062964338
 
 # Initialize the bot
 bot = Client(
@@ -52,7 +52,7 @@ auth_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNzM0MTA1OTA2N
 cookies_file_path= "youtube_cookies.txt"
 
 
-auth_users = [7836790905,7212452634,8117793426,5817712634,7958016772,7341059064,7714608838,8007442798,7068000043,7062964338,6947024366,5682377441,7504558633,6440249117,7943069140,5486913681,1959279443,1511257208,1226915008,7080838404,6148865829,7346516859,6660248311,8056915809]
+auth_users = [7062964338]
 
 # Command to authorize a user
 @bot.on_message(filters.command("auth") & filters.private)
