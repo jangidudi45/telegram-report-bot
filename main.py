@@ -219,7 +219,7 @@ async def txt_handler(bot: Client, m: Message):
     x = await input.download()
     await input.delete(True)
     file_name, ext = os.path.splitext(os.path.basename(x))
-    credit ="🩷♡𝗗𝗢𝗖𝗧𝗢𝗥 𝗕𝗔𝗕𝗔♡💚" 
+    credit ="[️ᴘɪᴋᴀᴄʜᴜ️](https://t.me/ItsPikachubot)" 
     try:    
         with open(x, "r") as f:
             content = f.read()
