@@ -362,15 +362,31 @@ async def txt_handler(bot: Client, m: Message):
                         await asyncio.sleep(2)
                         url = url.replace(" ", "%20")
                         
-                        # Try cloudscraper first
+                        # Headers to bypass 403 Forbidden
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'application/pdf,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1',
+                            'Sec-Fetch-Dest': 'document',
+                            'Sec-Fetch-Mode': 'navigate',
+                            'Sec-Fetch-Site': 'none',
+                            'Cache-Control': 'max-age=0'
+                        }
+                        
+                        # Try requests with headers first (fastest)
                         try:
-                            scraper = cloudscraper.create_scraper()
-                            response = scraper.get(url, timeout=30)
+                            print(f"Trying requests with headers for: {url[:50]}...")
+                            response = requests.get(url, headers=headers, timeout=30, allow_redirects=True, stream=True)
                             
                             if response.status_code == 200:
                                 with open(f'{name}.pdf', 'wb') as file:
-                                    file.write(response.content)
-                                await asyncio.sleep(2)
+                                    for chunk in response.iter_content(chunk_size=8192):
+                                        if chunk:
+                                            file.write(chunk)
+                                await asyncio.sleep(1)
                                 copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                 count += 1
                                 os.remove(f'{name}.pdf')
@@ -378,26 +394,37 @@ async def txt_handler(bot: Client, m: Message):
                                 raise Exception(f"HTTP {response.status_code}")
                                 
                         except Exception as e:
-                            print(f"Cloudscraper failed: {e}, trying yt-dlp...")
-                            cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
-                            download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                            result = os.system(download_cmd)
+                            print(f"Requests failed: {e}, trying cloudscraper...")
                             
-                            if result == 0 and os.path.exists(f'{name}.pdf'):
-                                copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                count += 1
-                                os.remove(f'{name}.pdf')
-                            else:
-                                print("yt-dlp failed, trying requests...")
-                                response = requests.get(url, timeout=30, allow_redirects=True)
+                            # Try cloudscraper
+                            try:
+                                scraper = cloudscraper.create_scraper()
+                                response = scraper.get(url, timeout=30, headers=headers)
+                                
                                 if response.status_code == 200:
                                     with open(f'{name}.pdf', 'wb') as file:
                                         file.write(response.content)
+                                    await asyncio.sleep(1)
                                     copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                     count += 1
                                     os.remove(f'{name}.pdf')
                                 else:
-                                    raise Exception(f"All download methods failed for PDF")
+                                    raise Exception(f"HTTP {response.status_code}")
+                                    
+                            except Exception as e2:
+                                print(f"Cloudscraper failed: {e2}, trying yt-dlp with headers...")
+                                
+                                # Try yt-dlp with custom headers
+                                cmd = f'yt-dlp --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" --add-header "Referer:https://utkarshapp.com/" -o "{name}.pdf" "{url}"'
+                                download_cmd = f"{cmd} -R 25 --fragment-retries 25"
+                                result = os.system(download_cmd)
+                                
+                                if result == 0 and os.path.exists(f'{name}.pdf'):
+                                    copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                                    count += 1
+                                    os.remove(f'{name}.pdf')
+                                else:
+                                    raise Exception(f"All download methods failed for PDF: {url[:50]}")
                                     
                     except FloodWait as e:
                         await m.reply_text(str(e))
@@ -405,7 +432,7 @@ async def txt_handler(bot: Client, m: Message):
                         count += 1
                         continue
                     except Exception as e:
-                        await m.reply_text(f"Failed to download PDF: {str(e)}")
+                        await m.reply_text(f"Failed to download PDF: {str(e)}\nURL: {url[:100]}")
                         count += 1
                         continue
 
@@ -636,15 +663,31 @@ async def text_handler(bot: Client, m: Message):
                         await asyncio.sleep(2)
                         url = url.replace(" ", "%20")
                         
-                        # Try cloudscraper first
+                        # Headers to bypass 403 Forbidden
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'application/pdf,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1',
+                            'Sec-Fetch-Dest': 'document',
+                            'Sec-Fetch-Mode': 'navigate',
+                            'Sec-Fetch-Site': 'none',
+                            'Cache-Control': 'max-age=0'
+                        }
+                        
+                        # Try requests with headers first (fastest)
                         try:
-                            scraper = cloudscraper.create_scraper()
-                            response = scraper.get(url, timeout=30)
+                            print(f"Trying requests with headers for: {url[:50]}...")
+                            response = requests.get(url, headers=headers, timeout=30, allow_redirects=True, stream=True)
                             
                             if response.status_code == 200:
                                 with open(f'{name}.pdf', 'wb') as file:
-                                    file.write(response.content)
-                                await asyncio.sleep(2)
+                                    for chunk in response.iter_content(chunk_size=8192):
+                                        if chunk:
+                                            file.write(chunk)
+                                await asyncio.sleep(1)
                                 copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                 count += 1
                                 os.remove(f'{name}.pdf')
@@ -652,26 +695,37 @@ async def text_handler(bot: Client, m: Message):
                                 raise Exception(f"HTTP {response.status_code}")
                                 
                         except Exception as e:
-                            print(f"Cloudscraper failed: {e}, trying yt-dlp...")
-                            cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
-                            download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                            result = os.system(download_cmd)
+                            print(f"Requests failed: {e}, trying cloudscraper...")
                             
-                            if result == 0 and os.path.exists(f'{name}.pdf'):
-                                copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                count += 1
-                                os.remove(f'{name}.pdf')
-                            else:
-                                print("yt-dlp failed, trying requests...")
-                                response = requests.get(url, timeout=30, allow_redirects=True)
+                            # Try cloudscraper
+                            try:
+                                scraper = cloudscraper.create_scraper()
+                                response = scraper.get(url, timeout=30, headers=headers)
+                                
                                 if response.status_code == 200:
                                     with open(f'{name}.pdf', 'wb') as file:
                                         file.write(response.content)
+                                    await asyncio.sleep(1)
                                     copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                     count += 1
                                     os.remove(f'{name}.pdf')
                                 else:
-                                    raise Exception(f"All download methods failed for PDF")
+                                    raise Exception(f"HTTP {response.status_code}")
+                                    
+                            except Exception as e2:
+                                print(f"Cloudscraper failed: {e2}, trying yt-dlp with headers...")
+                                
+                                # Try yt-dlp with custom headers
+                                cmd = f'yt-dlp --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" --add-header "Referer:https://utkarshapp.com/" -o "{name}.pdf" "{url}"'
+                                download_cmd = f"{cmd} -R 25 --fragment-retries 25"
+                                result = os.system(download_cmd)
+                                
+                                if result == 0 and os.path.exists(f'{name}.pdf'):
+                                    copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                                    count += 1
+                                    os.remove(f'{name}.pdf')
+                                else:
+                                    raise Exception(f"All download methods failed for PDF: {url[:50]}")
                                     
                     except FloodWait as e:
                         await m.reply_text(str(e))
@@ -679,7 +733,7 @@ async def text_handler(bot: Client, m: Message):
                         count += 1
                         pass
                     except Exception as e:
-                        await m.reply_text(f"Failed to download PDF: {str(e)}")
+                        await m.reply_text(f"Failed to download PDF: {str(e)}\nURL: {url[:100]}")
                         count += 1
                         pass    
 
@@ -928,15 +982,31 @@ async def upload(bot: Client, m: Message):
                         await asyncio.sleep(2)
                         url = url.replace(" ", "%20")
                         
-                        # Try cloudscraper first
+                        # Headers to bypass 403 Forbidden
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'application/pdf,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1',
+                            'Sec-Fetch-Dest': 'document',
+                            'Sec-Fetch-Mode': 'navigate',
+                            'Sec-Fetch-Site': 'none',
+                            'Cache-Control': 'max-age=0'
+                        }
+                        
+                        # Try requests with headers first (fastest)
                         try:
-                            scraper = cloudscraper.create_scraper()
-                            response = scraper.get(url, timeout=30)
+                            print(f"Trying requests with headers for: {url[:50]}...")
+                            response = requests.get(url, headers=headers, timeout=30, allow_redirects=True, stream=True)
                             
                             if response.status_code == 200:
                                 with open(f'{name}.pdf', 'wb') as file:
-                                    file.write(response.content)
-                                await asyncio.sleep(2)
+                                    for chunk in response.iter_content(chunk_size=8192):
+                                        if chunk:
+                                            file.write(chunk)
+                                await asyncio.sleep(1)
                                 copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                 count += 1
                                 os.remove(f'{name}.pdf')
@@ -944,26 +1014,37 @@ async def upload(bot: Client, m: Message):
                                 raise Exception(f"HTTP {response.status_code}")
                                 
                         except Exception as e:
-                            print(f"Cloudscraper failed: {e}, trying yt-dlp...")
-                            cmd = f'yt-dlp -o "{name}.pdf" "{url}"'
-                            download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                            result = os.system(download_cmd)
+                            print(f"Requests failed: {e}, trying cloudscraper...")
                             
-                            if result == 0 and os.path.exists(f'{name}.pdf'):
-                                copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                count += 1
-                                os.remove(f'{name}.pdf')
-                            else:
-                                print("yt-dlp failed, trying requests...")
-                                response = requests.get(url, timeout=30, allow_redirects=True)
+                            # Try cloudscraper
+                            try:
+                                scraper = cloudscraper.create_scraper()
+                                response = scraper.get(url, timeout=30, headers=headers)
+                                
                                 if response.status_code == 200:
                                     with open(f'{name}.pdf', 'wb') as file:
                                         file.write(response.content)
+                                    await asyncio.sleep(1)
                                     copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
                                     count += 1
                                     os.remove(f'{name}.pdf')
                                 else:
-                                    raise Exception(f"All download methods failed for PDF")
+                                    raise Exception(f"HTTP {response.status_code}")
+                                    
+                            except Exception as e2:
+                                print(f"Cloudscraper failed: {e2}, trying yt-dlp with headers...")
+                                
+                                # Try yt-dlp with custom headers
+                                cmd = f'yt-dlp --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" --add-header "Referer:https://utkarshapp.com/" -o "{name}.pdf" "{url}"'
+                                download_cmd = f"{cmd} -R 25 --fragment-retries 25"
+                                result = os.system(download_cmd)
+                                
+                                if result == 0 and os.path.exists(f'{name}.pdf'):
+                                    copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                                    count += 1
+                                    os.remove(f'{name}.pdf')
+                                else:
+                                    raise Exception(f"All download methods failed for PDF: {url[:50]}")
                                     
                     except FloodWait as e:
                         await m.reply_text(str(e))
@@ -971,7 +1052,7 @@ async def upload(bot: Client, m: Message):
                         count += 1
                         continue
                     except Exception as e:
-                        await m.reply_text(f"Failed to download PDF: {str(e)}")
+                        await m.reply_text(f"Failed to download PDF: {str(e)}\nURL: {url[:100]}")
                         count += 1
                         continue
 
