@@ -362,8 +362,11 @@ async def txt_handler(bot: Client, m: Message):
                         await asyncio.sleep(2)
                         url = url.replace(" ", "%20")
                         
-                        # Exact headers from Utkarsh App (from browser request)
-                        headers = {
+                        # Create a session with exact browser headers
+                        session = requests.Session()
+                        
+                        # Exact headers from working browser request
+                        session.headers.update({
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0',
                             'Accept': '*/*',
                             'Accept-Language': 'en-US,en;q=0.9',
@@ -375,86 +378,101 @@ async def txt_handler(bot: Client, m: Message):
                             'Sec-Fetch-Site': 'cross-site',
                             'sec-ch-ua': '"Chromium";v="142", "Microsoft Edge";v="142", "Not_A Brand";v="99"',
                             'sec-ch-ua-mobile': '?0',
-                            'sec-ch-ua-platform': '"Windows"',
-                            'Priority': 'u=1, i'
-                        }
+                            'sec-ch-ua-platform': '"Windows"'
+                        })
                         
-                        # Method 1: Direct download with correct headers
                         try:
-                            print(f"Downloading PDF from Utkarsh S3: {url[:50]}...")
-                            response = requests.get(url, headers=headers, timeout=60, allow_redirects=True, stream=True)
+                            print(f"Downloading PDF from S3: {url[:60]}...")
+                            
+                            # Make request with session
+                            response = session.get(url, timeout=60, allow_redirects=True, stream=True, verify=True)
+                            
+                            print(f"Response status: {response.status_code}")
+                            print(f"Response headers: {dict(response.headers)}")
                             
                             if response.status_code == 200:
+                                # Download file in chunks
                                 with open(f'{name}.pdf', 'wb') as file:
-                                    for chunk in response.iter_content(chunk_size=8192):
+                                    for chunk in response.iter_content(chunk_size=16384):
                                         if chunk:
                                             file.write(chunk)
                                 
-                                # Verify it's a valid PDF
+                                # Verify file
                                 file_size = os.path.getsize(f'{name}.pdf')
-                                if file_size > 1024:  # At least 1KB
-                                    await asyncio.sleep(1)
-                                    copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                    count += 1
-                                    os.remove(f'{name}.pdf')
-                                    print(f"✅ PDF downloaded successfully: {name}.pdf ({file_size} bytes)")
+                                print(f"Downloaded file size: {file_size} bytes")
+                                
+                                if file_size > 1024:
+                                    # Check if it's actually a PDF
+                                    with open(f'{name}.pdf', 'rb') as f:
+                                        header = f.read(4)
+                                        if header == b'%PDF':
+                                            await asyncio.sleep(1)
+                                            copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                                            count += 1
+                                            os.remove(f'{name}.pdf')
+                                            print(f"✅ PDF sent successfully!")
+                                            session.close()
+                                        else:
+                                            os.remove(f'{name}.pdf')
+                                            print(f"❌ File is not a valid PDF")
+                                            raise Exception(f"Downloaded file is not a PDF")
                                 else:
                                     os.remove(f'{name}.pdf')
                                     raise Exception(f"File too small ({file_size} bytes)")
+                                    
+                            elif response.status_code == 403:
+                                print(f"❌ 403 Forbidden - CloudFront blocking")
+                                print(f"Request headers sent: {dict(session.headers)}")
+                                
+                                # Try alternative approach - direct CloudFront request
+                                alt_headers = {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                                    'Accept': 'application/pdf,*/*',
+                                    'Referer': 'https://online.utkarsh.com/',
+                                    'Origin': 'https://online.utkarsh.com'
+                                }
+                                
+                                print("Trying alternative headers...")
+                                response2 = requests.get(url, headers=alt_headers, timeout=60, stream=True)
+                                
+                                if response2.status_code == 200:
+                                    with open(f'{name}.pdf', 'wb') as file:
+                                        for chunk in response2.iter_content(chunk_size=16384):
+                                            if chunk:
+                                                file.write(chunk)
+                                    
+                                    file_size = os.path.getsize(f'{name}.pdf')
+                                    if file_size > 1024:
+                                        with open(f'{name}.pdf', 'rb') as f:
+                                            if f.read(4) == b'%PDF':
+                                                copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
+                                                count += 1
+                                                os.remove(f'{name}.pdf')
+                                                print(f"✅ Success with alternative headers!")
+                                            else:
+                                                os.remove(f'{name}.pdf')
+                                                raise Exception("Not a PDF")
+                                    else:
+                                        os.remove(f'{name}.pdf')
+                                        raise Exception("File too small")
+                                else:
+                                    raise Exception(f"Still got {response2.status_code} with alternative headers")
                             else:
                                 raise Exception(f"HTTP {response.status_code}")
                                 
                         except Exception as e:
-                            print(f"Direct download failed: {e}, trying alternative methods...")
-                            
-                            # Method 2: Using curl with exact headers
-                            try:
-                                curl_cmd = f'''curl -L -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0" -H "Origin: https://online.utkarsh.com" -H "Referer: https://online.utkarsh.com/" -H "Accept: */*" -H "Sec-Fetch-Site: cross-site" -H "Sec-Fetch-Mode: cors" -o "{name}.pdf" "{url}"'''
-                                result = os.system(curl_cmd)
-                                
-                                if result == 0 and os.path.exists(f'{name}.pdf'):
-                                    file_size = os.path.getsize(f'{name}.pdf')
-                                    if file_size > 1024:
-                                        copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                        count += 1
-                                        os.remove(f'{name}.pdf')
-                                        print(f"✅ PDF downloaded via curl: {name}.pdf")
-                                    else:
-                                        os.remove(f'{name}.pdf')
-                                        raise Exception(f"File too small")
-                                else:
-                                    raise Exception(f"curl failed")
-                                    
-                            except Exception as e2:
-                                print(f"curl failed: {e2}, trying wget...")
-                                
-                                # Method 3: Using wget
-                                try:
-                                    wget_cmd = f'wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" --referer="https://online.utkarsh.com/" --header="Origin: https://online.utkarsh.com" --header="Accept: */*" -O "{name}.pdf" "{url}"'
-                                    result = os.system(wget_cmd)
-                                    
-                                    if result == 0 and os.path.exists(f'{name}.pdf'):
-                                        file_size = os.path.getsize(f'{name}.pdf')
-                                        if file_size > 1024:
-                                            copy = await bot.send_document(chat_id=m.chat.id, document=f'{name}.pdf', caption=cc1)
-                                            count += 1
-                                            os.remove(f'{name}.pdf')
-                                            print(f"✅ PDF downloaded via wget: {name}.pdf")
-                                        else:
-                                            os.remove(f'{name}.pdf')
-                                            raise Exception(f"File too small")
-                                    else:
-                                        raise Exception(f"All methods failed for: {url[:80]}")
-                                        
-                                except Exception as e3:
-                                    await m.reply_text(
-                                        f"❌ **Failed to download PDF**\n\n"
-                                        f"📄 **File:** `{name}.pdf`\n"
-                                        f"🔗 **URL:** `{url[:100]}...`\n\n"
-                                        f"⚠️ **Error:** {str(e3)[:150]}"
-                                    )
-                                    count += 1
-                                    continue
+                            print(f"❌ All methods failed: {str(e)}")
+                            await m.reply_text(
+                                f"❌ **Failed to download PDF**\n\n"
+                                f"📄 **File:** `{name}.pdf`\n"
+                                f"⚠️ **Error:** {str(e)[:150]}\n\n"
+                                f"💡 **Tip:** The URL might be expired or requires login.\n"
+                                f"Try getting a fresh link from the app."
+                            )
+                            count += 1
+                            continue
+                        finally:
+                            session.close()
                                     
                     except FloodWait as e:
                         await m.reply_text(str(e))
